@@ -2,6 +2,7 @@ package tgbot
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,10 @@ import (
 	"regexp"
 	"time"
 )
+
+type PubSubMessage struct {
+	Data []byte `json:"data"`
+}
 
 type news struct {
 	URLs []string
