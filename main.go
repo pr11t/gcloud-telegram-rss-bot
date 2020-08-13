@@ -192,7 +192,7 @@ func postNews(t telegramAPI, n news) {
 
 }
 
-func main() {
+func run(ctx context.Context, m PubSubMessage) {
 	t := newTelegramAPI()
 	n := news{}
 	postNews(t, n)
