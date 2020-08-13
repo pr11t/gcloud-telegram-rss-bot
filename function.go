@@ -1,4 +1,4 @@
-package tgbot
+package p
 
 import (
 	"bytes"
@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"time"
 )
 
 type PubSubMessage struct {
@@ -185,9 +184,6 @@ func postNews(t telegramAPI, n news) error {
 			log.Printf("Failed to send message: %v", err.Error())
 			return err
 		}
-		// Wait a bit after sending the message
-		time.Sleep(200 * time.Millisecond)
-
 		// Stop when message limit is reached
 		messageLimit--
 		if messageLimit <= 0 {
