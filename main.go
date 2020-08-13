@@ -62,39 +62,35 @@ type telegramAPI struct {
 	chatID   string
 }
 
-func (t *telegramAPI) call(command string, params interface{}) (result map[string]interface{}, err error) {
+type responseMessage = struct {
+	OK     bool                   `json:"ok"`
+	Result map[string]interface{} `json:"result"`
+}
+
+func (t *telegramAPI) call(command string, params interface{}, response interface{}) (interface{}, error) {
 	apiURL := fmt.Sprintf("https://api.telegram.org/bot%v/%v", t.botToken, command)
 	jsonValue, err := json.Marshal(params)
 	if err != nil {
 		log.Panicf("Failed to marshal parameters: %v", err.Error())
 	}
 	resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonValue))
-	if err != nil || resp.StatusCode != 200 {
-		log.Print(resp)
-		log.Print("API request failed ", err.Error())
-		return
+	if err != nil {
+		log.Print("API call failed ", err.Error())
+		return nil, err
 	}
-
-	response := struct {
-		OK     bool                   `json:"ok"`
-		Result map[string]interface{} `json:"result"`
-	}{}
-
+	if resp.StatusCode != 200 {
+		log.Print(resp)
+		return nil, errors.New("API call failed")
+	}
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
 		log.Panicf("Failed to decode response parameters: %v", err.Error())
 	}
 
-	if response.OK {
-		result = response.Result
-	} else {
-		err = errors.New("Response not OK")
-	}
-
-	return
+	return response, nil
 }
 
-func (t *telegramAPI) sendMessage(text string) (map[string]interface{}, error) {
+func (t *telegramAPI) sendMessage(text string) (interface{}, error) {
 	params := struct {
 		ChatID string `json:"chat_id"`
 		Text   string `json:"text"`
@@ -102,10 +98,10 @@ func (t *telegramAPI) sendMessage(text string) (map[string]interface{}, error) {
 		ChatID: t.chatID,
 		Text:   text,
 	}
-	return t.call("sendMessage", params)
+	return t.call("sendMessage", params, responseMessage{})
 }
 
-func (t *telegramAPI) setChatDescription(description string) (map[string]interface{}, error) {
+func (t *telegramAPI) setChatDescription(description string) (interface{}, error) {
 	params := struct {
 		ChatID      string `json:"chat_id"`
 		Description string `json:"description"`
@@ -113,24 +109,25 @@ func (t *telegramAPI) setChatDescription(description string) (map[string]interfa
 		ChatID:      t.chatID,
 		Description: description,
 	}
-	return t.call("setChatDescription", params)
+	return t.call("setChatDescription", params, responseMessage{})
 }
 
-func (t *telegramAPI) getChat() (map[string]interface{}, error) {
+func (t *telegramAPI) getChat() (interface{}, error) {
 	params := struct {
 		ChatID string `json:"chat_id"`
 	}{
 		ChatID: t.chatID,
 	}
-	return t.call("getChat", params)
+	return t.call("getChat", params, responseMessage{})
 }
 
 func (t *telegramAPI) getChatDescription() (description string, err error) {
-	resp, err := t.getChat()
+	res, err := t.getChat()
 	if err != nil {
 		return
 	}
-	return resp["description"].(string), nil
+	description = res.(map[string]interface{})["result"].(map[string]interface{})["description"].(string)
+	return
 }
 
 func newTelegramAPI() telegramAPI {
