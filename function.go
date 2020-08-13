@@ -147,14 +147,14 @@ func newTelegramAPI() telegramAPI {
 	return telegramAPI{botToken: token, chatID: chatID}
 }
 
-func postNews(t telegramAPI, n news) {
+func postNews(t telegramAPI, n news) error {
 	// Telegram throttles us after ~20 API calls, so just stop after this limit
 	messageLimit := 10
 
 	// Fetch news urls we want to post
 	err := n.fetchURLs()
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 	/*
 		We use channel description as a value store to keep track of the last news item posted,
@@ -164,13 +164,13 @@ func postNews(t telegramAPI, n news) {
 	latestPost, err := t.getChatDescription()
 	if err != nil {
 		log.Printf("Failed to get chat description: %v", err.Error())
-		return
+		return err
 	}
 	n.removeOlderThan(latestPost)
 	n.reverse()
 	if len(n.URLs) < 1 {
 		log.Print("No new URLs to post")
-		return
+		return nil
 	}
 	log.Printf("%v new URLs", len(n.URLs))
 	for _, url := range n.URLs {
@@ -178,12 +178,12 @@ func postNews(t telegramAPI, n news) {
 		_, err := t.setChatDescription(url)
 		if err != nil {
 			log.Printf("Failed to set chat description: %v", err.Error())
-			return
+			return err
 		}
 		_, err = t.sendMessage(url)
 		if err != nil {
 			log.Printf("Failed to send message: %v", err.Error())
-			return
+			return err
 		}
 		// Wait a bit after sending the message
 		time.Sleep(200 * time.Millisecond)
@@ -194,11 +194,11 @@ func postNews(t telegramAPI, n news) {
 			break
 		}
 	}
-
+	return nil
 }
 
-func run(ctx context.Context, m PubSubMessage) {
+func Run(ctx context.Context, m PubSubMessage) error {
 	t := newTelegramAPI()
 	n := news{}
-	postNews(t, n)
+	return postNews(t, n)
 }
