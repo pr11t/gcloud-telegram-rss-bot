@@ -135,16 +135,16 @@ func (t *telegramAPI) getChatDescription() (description string, err error) {
 	return
 }
 
-func newTelegramAPI() telegramAPI {
+func newTelegramAPI() (telegramAPI, error) {
 	token := os.Getenv("TELEGRAM_BOT_TOKEN")
 	if token == "" {
-		log.Panic("TELEGRAM_BOT_TOKEN env var not set")
+		return telegramAPI{}, errors.New("TELEGRAM_BOT_TOKEN env var not set")
 	}
 	chatID := os.Getenv("TELEGRAM_CHAT_ID")
 	if chatID == "" {
-		log.Panic("TELEGRAM_CHAT_ID env var not set")
+		return telegramAPI{}, errors.New("TELEGRAM_CHAT_ID env var not set")
 	}
-	return telegramAPI{botToken: token, chatID: chatID}
+	return telegramAPI{botToken: token, chatID: chatID}, nil
 }
 
 func postNews(t telegramAPI, n news) error {
@@ -198,7 +198,10 @@ func postNews(t telegramAPI, n news) error {
 }
 
 func Run(ctx context.Context, m PubSubMessage) error {
-	t := newTelegramAPI()
+	t, err := newTelegramAPI()
+	if err != nil {
+		return err
+	}
 	n := news{}
 	return postNews(t, n)
 }
