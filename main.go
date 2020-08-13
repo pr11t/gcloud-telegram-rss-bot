@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"time"
 )
 
 type news struct {
@@ -86,7 +87,6 @@ func (t *telegramAPI) call(command string, params interface{}, response interfac
 	if err != nil {
 		log.Panicf("Failed to decode response parameters: %v", err.Error())
 	}
-
 	return response, nil
 }
 
@@ -143,9 +143,8 @@ func newTelegramAPI() telegramAPI {
 }
 
 func postNews(t telegramAPI, n news) {
-	// Bots can't send more than 20 messages in a minute to a group.
-	// We will just exit if the limit is reached and continue during next run.
-	messageLimit := 20
+	// Telegram throttles us after ~20 API calls, so just stop after this limit
+	messageLimit := 10
 
 	// Fetch news urls we want to post
 	err := n.fetchURLs()
@@ -159,21 +158,31 @@ func postNews(t telegramAPI, n news) {
 	*/
 	latestPost, err := t.getChatDescription()
 	if err != nil {
-		panic(err.Error())
+		log.Printf("Failed to get chat description: %v", err.Error())
+		return
 	}
 	n.removeOlderThan(latestPost)
 	n.reverse()
-
+	if len(n.URLs) < 1 {
+		log.Print("No new URLs to post")
+		return
+	}
+	log.Printf("%v new URLs", len(n.URLs))
 	for _, url := range n.URLs {
-		// Set the description first, in case something breaks down the line we might not start spamming the channel then at least
+		// Set the description first, in case something breaks down the line we may miss an article, but don't spam the channel.
 		_, err := t.setChatDescription(url)
 		if err != nil {
-			panic(err.Error())
+			log.Printf("Failed to set chat description: %v", err.Error())
+			return
 		}
 		_, err = t.sendMessage(url)
 		if err != nil {
-			panic(err.Error())
+			log.Printf("Failed to send message: %v", err.Error())
+			return
 		}
+		// Wait a bit after sending the message
+		time.Sleep(200 * time.Millisecond)
+
 		// Stop when message limit is reached
 		messageLimit--
 		if messageLimit <= 0 {
