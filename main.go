@@ -75,9 +75,6 @@ func (t *telegramAPI) call(command string, params interface{}) (result map[strin
 		return
 	}
 
-	b, err := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(b))
-
 	response := struct {
 		OK     bool                   `json:"ok"`
 		Result map[string]interface{} `json:"result"`
