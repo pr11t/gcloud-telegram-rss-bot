@@ -11,6 +11,13 @@ provider "google" {
 }
 resource "google_sourcerepo_repository" "repo" {
   name = "${var.prefix}-repository"
+  provisioner "local-exec" {
+    command = "git remote add google ${google_sourcerepo_repository.repo.url} && git push google --all"
+  }
+  provisioner "local-exec" {
+    when    = destroy
+    command = "git remote remove google"
+  }
 }
 
 resource "google_pubsub_topic" "topic" {
