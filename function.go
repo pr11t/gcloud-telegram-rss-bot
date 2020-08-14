@@ -126,6 +126,14 @@ func (t *telegramAPI) getChat() (interface{}, error) {
 }
 
 func (t *telegramAPI) getChatDescription() (description string, err error) {
+	defer func() {
+		if err := recover(); err != nil {
+			// TODO: Handle this differently
+			// If chat description is empty we can't convert interface to string
+			// and program panics.
+			log.Print("Chat description empty")
+		}
+	}()
 	res, err := t.getChat()
 	if err != nil {
 		return
