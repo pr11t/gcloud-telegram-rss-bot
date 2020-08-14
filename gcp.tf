@@ -2,6 +2,8 @@ variable "project" {}
 variable "region" {}
 variable "prefix" {}
 variable "scheduler_cron" {}
+variable "telegram_bot_token" {}
+variable "telegram_chat_id" {}
 
 provider "google" {
   project = var.project
@@ -51,7 +53,8 @@ resource "google_cloudfunctions_function" "function" {
     }
   }
   environment_variables = {
-    MY_ENV_VAR = "my-env-var-value"
+    TELEGRAM_BOT_TOKEN = var.telegram_bot_token
+    TELEGRAM_CHAT_ID   = var.telegram_chat_id
   }
 }
 
