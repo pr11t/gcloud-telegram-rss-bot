@@ -13,6 +13,18 @@ import (
 	"regexp"
 )
 
+var telegramToken = os.Getenv("TELEGRAM_BOT_TOKEN")
+var telegramChatID = os.Getenv("TELEGRAM_CHAT_ID")
+
+func init() {
+	if telegramToken == "" {
+		panic("TELEGRAM_BOT_TOKEN env var not set")
+	}
+	if telegramChatID == "" {
+		panic("TELEGRAM_CHAT_ID env var not set")
+	}
+}
+
 type PubSubMessage struct {
 	Data []byte `json:"data"`
 }
@@ -142,18 +154,6 @@ func (t *telegramAPI) getChatDescription() (description string, err error) {
 	return
 }
 
-func newTelegramAPI() (telegramAPI, error) {
-	token := os.Getenv("TELEGRAM_BOT_TOKEN")
-	if token == "" {
-		return telegramAPI{}, errors.New("TELEGRAM_BOT_TOKEN env var not set")
-	}
-	chatID := os.Getenv("TELEGRAM_CHAT_ID")
-	if chatID == "" {
-		return telegramAPI{}, errors.New("TELEGRAM_CHAT_ID env var not set")
-	}
-	return telegramAPI{botToken: token, chatID: chatID}, nil
-}
-
 func postNews(t telegramAPI, n news) error {
 	// Telegram throttles us after ~20 API calls, so just stop after this limit
 	messageLimit := 10
@@ -202,10 +202,7 @@ func postNews(t telegramAPI, n news) error {
 }
 
 func Run(ctx context.Context, m PubSubMessage) error {
-	t, err := newTelegramAPI()
-	if err != nil {
-		return err
-	}
+	t := telegramAPI{botToken: telegramToken, chatID: telegramChatID}
 	n := news{}
 	return postNews(t, n)
 }
