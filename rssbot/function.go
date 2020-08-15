@@ -29,10 +29,6 @@ func init() {
 	}
 }
 
-type PubSubMessage struct {
-	Data []byte `json:"data"`
-}
-
 type RSSFeed struct {
 	links []string
 }
@@ -202,6 +198,10 @@ func postNews(t telegramAPI, r RSSFeed) error {
 		}
 	}
 	return nil
+}
+
+type PubSubMessage struct {
+	Data []byte `json:"data"`
 }
 
 func Run(ctx context.Context, m PubSubMessage) error {
