@@ -15,13 +15,17 @@ import (
 
 var telegramToken = os.Getenv("TELEGRAM_BOT_TOKEN")
 var telegramChatID = os.Getenv("TELEGRAM_CHAT_ID")
+var rssFeedURL = os.Getenv("RSS_FEED_URL")
 
 func init() {
 	if telegramToken == "" {
-		panic("TELEGRAM_BOT_TOKEN env var not set")
+		panic("TELEGRAM_BOT_TOKEN environment variable empty")
 	}
 	if telegramChatID == "" {
-		panic("TELEGRAM_CHAT_ID env var not set")
+		panic("TELEGRAM_CHAT_ID environment variable empty")
+	}
+	if rssFeedURL == "" {
+		panic("RSS_FEED_URL environment variable empty")
 	}
 }
 
@@ -33,8 +37,8 @@ type RSSFeed struct {
 	links []string
 }
 
-func (r *RSSFeed) fetchURLs() error {
-	resp, err := http.Get("http://uudised.err.ee/uudised_rss.php")
+func (r *RSSFeed) fetchLinks() error {
+	resp, err := http.Get(rssFeedURL)
 	if err != nil {
 		log.Print("Failed to fetch rss feed")
 		return err
@@ -42,7 +46,6 @@ func (r *RSSFeed) fetchURLs() error {
 	content, err := ioutil.ReadAll(resp.Body)
 
 	r.links = make([]string, 0)
-
 	re := regexp.MustCompile("<link>(https://[a-z0-9./-]+)</link>")
 	matches := re.FindAllStringSubmatch(string(content), -1)
 	for _, link := range matches {
@@ -154,12 +157,12 @@ func (t *telegramAPI) getChatDescription() (description string, err error) {
 	return
 }
 
-func postNews(t telegramAPI, n RSSFeed) error {
+func postNews(t telegramAPI, r RSSFeed) error {
 	// Telegram throttles us after ~20 API calls, so just stop after this limit
 	messageLimit := 10
 
 	// Fetch news urls we want to post
-	err := n.fetchURLs()
+	err := r.fetchLinks()
 	if err != nil {
 		return err
 	}
@@ -173,14 +176,14 @@ func postNews(t telegramAPI, n RSSFeed) error {
 		log.Printf("Failed to get chat description: %v", err.Error())
 		return err
 	}
-	n.removeOlderThan(latestPost)
-	n.reverse()
-	if len(n.links) < 1 {
+	r.removeOlderThan(latestPost)
+	r.reverse()
+	if len(r.links) < 1 {
 		log.Print("No new URLs to post")
 		return nil
 	}
-	log.Printf("%v new URLs", len(n.links))
-	for _, url := range n.links {
+	log.Printf("%v new URLs", len(r.links))
+	for _, url := range r.links {
 		// Set the description first, in case something breaks down the line we may miss an article, but don't spam the channel.
 		_, err := t.setChatDescription(url)
 		if err != nil {
