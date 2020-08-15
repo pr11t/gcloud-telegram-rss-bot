@@ -29,11 +29,11 @@ type PubSubMessage struct {
 	Data []byte `json:"data"`
 }
 
-type news struct {
-	URLs []string
+type RSSFeed struct {
+	links []string
 }
 
-func (n *news) fetchURLs() error {
+func (r *RSSFeed) fetchURLs() error {
 	resp, err := http.Get("http://uudised.err.ee/uudised_rss.php")
 	if err != nil {
 		log.Print("Failed to fetch rss feed")
@@ -41,36 +41,36 @@ func (n *news) fetchURLs() error {
 	}
 	content, err := ioutil.ReadAll(resp.Body)
 
-	n.URLs = make([]string, 0)
+	r.links = make([]string, 0)
 
 	re := regexp.MustCompile("<link>(https://[a-z0-9./-]+)</link>")
 	matches := re.FindAllStringSubmatch(string(content), -1)
 	for _, link := range matches {
 		if len(link) == 2 {
-			n.URLs = append(n.URLs, link[1])
+			r.links = append(r.links, link[1])
 		}
 	}
 
 	return nil
 }
 
-func (n *news) removeOlderThan(latestNewsItem string) {
+func (r *RSSFeed) removeOlderThan(latestNewsItem string) {
 	newURLs := make([]string, 0)
-	for _, url := range n.URLs {
+	for _, url := range r.links {
 		if url != latestNewsItem {
 			newURLs = append(newURLs, url)
 		} else {
 			break
 		}
 	}
-	n.URLs = newURLs
+	r.links = newURLs
 }
 
-func (n *news) reverse() {
+func (r *RSSFeed) reverse() {
 	// Reverse the slice because we want to post news starting from the oldest
-	for i := len(n.URLs)/2 - 1; i >= 0; i-- {
-		opp := len(n.URLs) - 1 - i
-		n.URLs[i], n.URLs[opp] = n.URLs[opp], n.URLs[i]
+	for i := len(r.links)/2 - 1; i >= 0; i-- {
+		opp := len(r.links) - 1 - i
+		r.links[i], r.links[opp] = r.links[opp], r.links[i]
 	}
 }
 
@@ -154,7 +154,7 @@ func (t *telegramAPI) getChatDescription() (description string, err error) {
 	return
 }
 
-func postNews(t telegramAPI, n news) error {
+func postNews(t telegramAPI, n RSSFeed) error {
 	// Telegram throttles us after ~20 API calls, so just stop after this limit
 	messageLimit := 10
 
@@ -175,12 +175,12 @@ func postNews(t telegramAPI, n news) error {
 	}
 	n.removeOlderThan(latestPost)
 	n.reverse()
-	if len(n.URLs) < 1 {
+	if len(n.links) < 1 {
 		log.Print("No new URLs to post")
 		return nil
 	}
-	log.Printf("%v new URLs", len(n.URLs))
-	for _, url := range n.URLs {
+	log.Printf("%v new URLs", len(n.links))
+	for _, url := range n.links {
 		// Set the description first, in case something breaks down the line we may miss an article, but don't spam the channel.
 		_, err := t.setChatDescription(url)
 		if err != nil {
@@ -203,6 +203,6 @@ func postNews(t telegramAPI, n news) error {
 
 func Run(ctx context.Context, m PubSubMessage) error {
 	t := telegramAPI{botToken: telegramToken, chatID: telegramChatID}
-	n := news{}
+	n := RSSFeed{}
 	return postNews(t, n)
 }
