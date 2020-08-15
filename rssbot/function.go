@@ -1,4 +1,4 @@
-package p
+package rssbot
 
 import (
 	"bytes"
