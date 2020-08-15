@@ -13,28 +13,26 @@ import (
 	"regexp"
 )
 
-var telegramToken = os.Getenv("TELEGRAM_BOT_TOKEN")
-var telegramChatID = os.Getenv("TELEGRAM_CHAT_ID")
-var rssFeedURL = os.Getenv("RSS_FEED_URL")
-
-func init() {
-	if telegramToken == "" {
+func loadConfig() (telegramToken, telegramChatID, rssFeedURL string) {
+	if telegramToken := os.Getenv("TELEGRAM_BOT_TOKEN"); telegramToken == "" {
 		panic("TELEGRAM_BOT_TOKEN environment variable empty")
 	}
-	if telegramChatID == "" {
-		panic("TELEGRAM_CHAT_ID environment variable empty")
+	if telegramChatID := os.Getenv("TELEGRAM_CHAT_ID"); telegramChatID == "" {
+		panic("TELEGRAM_BOT_TOKEN environment variable empty")
 	}
-	if rssFeedURL == "" {
-		panic("RSS_FEED_URL environment variable empty")
+	if rssFeedURL := os.Getenv("TELEGRAM_BOT_TOKEN"); rssFeedURL == "" {
+		panic("TELEGRAM_BOT_TOKEN environment variable empty")
 	}
+	return
 }
 
 type RSSFeed struct {
 	links []string
+	URL   string
 }
 
 func (r *RSSFeed) fetchLinks() error {
-	resp, err := http.Get(rssFeedURL)
+	resp, err := http.Get(r.URL)
 	if err != nil {
 		log.Print("Failed to fetch rss feed")
 		return err
@@ -205,7 +203,8 @@ type PubSubMessage struct {
 }
 
 func Run(ctx context.Context, m PubSubMessage) error {
-	t := telegramAPI{botToken: telegramToken, chatID: telegramChatID}
-	n := RSSFeed{}
+	botToken, chatID, feedURL := loadConfig()
+	t := telegramAPI{botToken: botToken, chatID: chatID}
+	n := RSSFeed{URL: feedURL}
 	return postNews(t, n)
 }
