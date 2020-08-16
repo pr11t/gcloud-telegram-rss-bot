@@ -31,7 +31,7 @@ type RSSFeed struct {
 	URL   string
 }
 
-func (r *RSSFeed) fetchLinks() error {
+func (r *RSSFeed) FetchLinks() error {
 	resp, err := http.Get(r.URL)
 	if err != nil {
 		log.Print("Failed to fetch rss feed")
@@ -161,12 +161,12 @@ func (t *TelegramAPI) GetChatDescription() (description string, err error) {
 	return
 }
 
-func publishNews(t TelegramAPI, r RSSFeed) error {
+func PublishNews(t TelegramAPI, r RSSFeed) error {
 	// Telegram throttles us after ~20 API calls, so just stop after this limit
 	messageLimit := 10
 
 	// Fetch news urls we want to post
-	err := r.fetchLinks()
+	err := r.FetchLinks()
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ func Run(ctx context.Context, m PubSubMessage) error {
 	apiToken, chatID, feedURL := LoadConfig()
 	t := TelegramAPI{APIToken: apiToken, ChatID: chatID, APIURL: "https://api.telegram.org"}
 	n := RSSFeed{URL: feedURL}
-	err := publishNews(t, n)
+	err := PublishNews(t, n)
 	if err != nil {
 		log.Print(err)
 	}

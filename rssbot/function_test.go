@@ -57,7 +57,7 @@ func TestRSSFeedFetchLinks(t *testing.T) {
 	}))
 	defer server.Close()
 	n := RSSFeed{URL: server.URL}
-	n.fetchLinks()
+	n.FetchLinks()
 	if len(n.links) != 3 {
 		t.Errorf("Wrong number of links extracted")
 	}
