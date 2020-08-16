@@ -92,14 +92,18 @@ func (t *TelegramAPI) call(command string, params interface{}) (response interfa
 		log.Print(resp)
 		return nil, errors.New("API call failed")
 	}
+	defer resp.Body.Close()
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
 		log.Panicf("Failed to decode response parameters: %v", err.Error())
 	}
+	if !response.(map[string]interface{})["ok"].(bool) {
+		return nil, errors.New("API did not return OK")
+	}
 	return response, nil
 }
 
-func (t *TelegramAPI) SendMessage(text string) (interface{}, error) {
+func (t *TelegramAPI) SendMessage(text string) (err error) {
 	params := struct {
 		ChatID string `json:"chat_id"`
 		Text   string `json:"text"`
@@ -107,10 +111,11 @@ func (t *TelegramAPI) SendMessage(text string) (interface{}, error) {
 		ChatID: t.ChatID,
 		Text:   text,
 	}
-	return t.call("sendMessage", params)
+	_, err = t.call("sendMessage", params)
+	return
 }
 
-func (t *TelegramAPI) SetChatDescription(description string) (interface{}, error) {
+func (t *TelegramAPI) SetChatDescription(description string) (err error) {
 	params := struct {
 		ChatID      string `json:"chat_id"`
 		Description string `json:"description"`
@@ -118,33 +123,41 @@ func (t *TelegramAPI) SetChatDescription(description string) (interface{}, error
 		ChatID:      t.ChatID,
 		Description: description,
 	}
-	return t.call("setChatDescription", params)
+	resp, err := t.call("setChatDescription", params)
+	if err != nil {
+		return
+	}
+	if !resp.(map[string]interface{})["result"].(bool) {
+		return errors.New("Description change returned false")
+	}
+	return
 }
 
-func (t *TelegramAPI) GetChat() (interface{}, error) {
+func (t *TelegramAPI) GetChat() (chat interface{}, err error) {
 	params := struct {
 		ChatID string `json:"chat_id"`
 	}{
 		ChatID: t.ChatID,
 	}
-	return t.call("getChat", params)
+	chat, err = t.call("getChat", params)
+	fmt.Println(chat)
+	if err != nil {
+		return
+	}
+	if !chat.(map[string]interface{})["ok"].(bool) {
+		return nil, errors.New("API responded not OK")
+	}
+	return chat, nil
 }
 
 func (t *TelegramAPI) GetChatDescription() (description string, err error) {
-	defer func() {
-		if err := recover(); err != nil {
-			// TODO: Handle this differently
-			// If chat description is empty we can't convert interface to string
-			// and program panics.
-			log.Print(err)
-			log.Print("Chat description empty")
-		}
-	}()
 	res, err := t.GetChat()
 	if err != nil {
 		return
 	}
-	description = res.(map[string]interface{})["result"].(map[string]interface{})["description"].(string)
+	if val, ok := res.(map[string]interface{})["result"].(map[string]interface{})["description"]; ok {
+		description = val.(string)
+	}
 	return
 }
 
@@ -176,13 +189,11 @@ func publishNews(t TelegramAPI, r RSSFeed) error {
 	log.Printf("%v new URLs", len(r.links))
 	for _, url := range r.links {
 		// Set the description first, in case something breaks down the line we may miss an article, but don't spam the channel.
-		_, err := t.SetChatDescription(url)
-		if err != nil {
+		if t.SetChatDescription(url) != nil {
 			log.Printf("Failed to set chat description: %v", err.Error())
 			return err
 		}
-		_, err = t.SendMessage(url)
-		if err != nil {
+		if t.SendMessage(url) != nil {
 			log.Printf("Failed to send message: %v", err.Error())
 			return err
 		}
