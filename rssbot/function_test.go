@@ -1,6 +1,7 @@
 package rssbot
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -86,15 +87,25 @@ func TestRSSFeedRemoveOlderThan(t *testing.T) {
 	}
 }
 
-func TestTelegramAPICall(t *testing.T) {
+func TestTelegramSuccessfulAPICall(t *testing.T) {
+	wantResponse := struct {
+		OK     bool `json:"ok"`
+		Result bool `json:"result"`
+	}{
+		OK:     true,
+		Result: true,
+	}
+
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		rw.Write([]byte(feedXML))
+		msg, err := json.Marshal(wantResponse)
+		if err != nil {
+			t.Error(err)
+		}
+		rw.Write(msg)
 	}))
 	defer server.Close()
 	chatID := "@test_chat"
 	apiToken := "123456-aaaaaaa"
-
-	api := TelegramAPI{apiToken: apiToken, apiURL: server.URL, chatID: chatID}
 	params := struct {
 		ChatID string `json:"chat_id"`
 		Text   string `json:"text"`
@@ -103,5 +114,50 @@ func TestTelegramAPICall(t *testing.T) {
 		Text:   "test",
 	}
 
-	api.call("testCommand", params, )
+	api := TelegramAPI{APIToken: apiToken, APIURL: server.URL, ChatID: chatID}
+	gotResponse, err := api.call("testCommand", params)
+	if err != nil {
+		t.Error(err)
+	}
+	if reflect.DeepEqual(wantResponse, gotResponse) {
+		t.Errorf("Received invalid response want:%v got:%v", wantResponse, gotResponse)
+	}
+
+}
+
+func TestFailingAPICall(t *testing.T) {
+	wantResponse := struct {
+		OK     bool `json:"ok"`
+		Result bool `json:"result"`
+	}{
+		OK:     false,
+		Result: true,
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		msg, err := json.Marshal(wantResponse)
+		if err != nil {
+			t.Error(err)
+		}
+		rw.Write(msg)
+	}))
+	defer server.Close()
+	chatID := "@test_chat"
+	apiToken := "123456-aaaaaaa"
+	params := struct {
+		ChatID string `json:"chat_id"`
+		Text   string `json:"text"`
+	}{
+		ChatID: chatID,
+		Text:   "test",
+	}
+
+	api := TelegramAPI{APIToken: apiToken, APIURL: server.URL, ChatID: chatID}
+	_, err := api.call("testCommand", params)
+	if err == nil {
+		t.Errorf("Expected an error, but didn't get one.")
+	}
+	if err.Error() != "API did not return OK" {
+		t.Errorf("Expected different error, but got %v", err.Error())
+	}
 }
