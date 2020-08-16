@@ -13,7 +13,7 @@ import (
 	"regexp"
 )
 
-func loadConfig() (telegramToken, telegramChatID, rssFeedURL string) {
+func LoadConfig() (telegramToken, telegramChatID, rssFeedURL string) {
 	if telegramToken = os.Getenv("TELEGRAM_BOT_TOKEN"); telegramToken == "" {
 		panic("TELEGRAM_BOT_TOKEN environment variable empty")
 	}
@@ -72,18 +72,13 @@ func (r *RSSFeed) reverse() {
 }
 
 type TelegramAPI struct {
-	apiToken string
-	apiURL   string
-	chatID   string
+	APIToken string
+	APIURL   string
+	ChatID   string
 }
 
-type responseMessage = struct {
-	OK     bool                   `json:"ok"`
-	Result map[string]interface{} `json:"result"`
-}
-
-func (t *TelegramAPI) call(command string, params interface{}, response interface{}) (interface{}, error) {
-	apiURL := fmt.Sprintf("%v/bot%v/%v", t.apiURL, t.apiToken, command)
+func (t *TelegramAPI) call(command string, params interface{}) (response interface{}, err error) {
+	apiURL := fmt.Sprintf("%v/bot%v/%v", t.APIURL, t.APIToken, command)
 	jsonValue, err := json.Marshal(params)
 	if err != nil {
 		log.Panicf("Failed to marshal parameters: %v", err.Error())
@@ -104,47 +99,48 @@ func (t *TelegramAPI) call(command string, params interface{}, response interfac
 	return response, nil
 }
 
-func (t *TelegramAPI) sendMessage(text string) (interface{}, error) {
+func (t *TelegramAPI) SendMessage(text string) (interface{}, error) {
 	params := struct {
 		ChatID string `json:"chat_id"`
 		Text   string `json:"text"`
 	}{
-		ChatID: t.chatID,
+		ChatID: t.ChatID,
 		Text:   text,
 	}
-	return t.call("sendMessage", params, responseMessage{})
+	return t.call("sendMessage", params)
 }
 
-func (t *TelegramAPI) setChatDescription(description string) (interface{}, error) {
+func (t *TelegramAPI) SetChatDescription(description string) (interface{}, error) {
 	params := struct {
 		ChatID      string `json:"chat_id"`
 		Description string `json:"description"`
 	}{
-		ChatID:      t.chatID,
+		ChatID:      t.ChatID,
 		Description: description,
 	}
-	return t.call("setChatDescription", params, responseMessage{})
+	return t.call("setChatDescription", params)
 }
 
-func (t *TelegramAPI) getChat() (interface{}, error) {
+func (t *TelegramAPI) GetChat() (interface{}, error) {
 	params := struct {
 		ChatID string `json:"chat_id"`
 	}{
-		ChatID: t.chatID,
+		ChatID: t.ChatID,
 	}
-	return t.call("getChat", params, responseMessage{})
+	return t.call("getChat", params)
 }
 
-func (t *TelegramAPI) getChatDescription() (description string, err error) {
+func (t *TelegramAPI) GetChatDescription() (description string, err error) {
 	defer func() {
 		if err := recover(); err != nil {
 			// TODO: Handle this differently
 			// If chat description is empty we can't convert interface to string
 			// and program panics.
+			log.Print(err)
 			log.Print("Chat description empty")
 		}
 	}()
-	res, err := t.getChat()
+	res, err := t.GetChat()
 	if err != nil {
 		return
 	}
@@ -166,7 +162,7 @@ func publishNews(t TelegramAPI, r RSSFeed) error {
 		because Telegram API does not allow reading bot messages by bots and there is no
 		data storage backend for this program. Maybe there is a better way?
 	*/
-	latestPost, err := t.getChatDescription()
+	latestPost, err := t.GetChatDescription()
 	if err != nil {
 		log.Printf("Failed to get chat description: %v", err.Error())
 		return err
@@ -180,12 +176,12 @@ func publishNews(t TelegramAPI, r RSSFeed) error {
 	log.Printf("%v new URLs", len(r.links))
 	for _, url := range r.links {
 		// Set the description first, in case something breaks down the line we may miss an article, but don't spam the channel.
-		_, err := t.setChatDescription(url)
+		_, err := t.SetChatDescription(url)
 		if err != nil {
 			log.Printf("Failed to set chat description: %v", err.Error())
 			return err
 		}
-		_, err = t.sendMessage(url)
+		_, err = t.SendMessage(url)
 		if err != nil {
 			log.Printf("Failed to send message: %v", err.Error())
 			return err
@@ -204,8 +200,8 @@ type PubSubMessage struct {
 }
 
 func Run(ctx context.Context, m PubSubMessage) error {
-	apiToken, chatID, feedURL := loadConfig()
-	t := TelegramAPI{apiToken: apiToken, chatID: chatID, apiURL: "https://api.telegram.org"}
+	apiToken, chatID, feedURL := LoadConfig()
+	t := TelegramAPI{APIToken: apiToken, ChatID: chatID, APIURL: "https://api.telegram.org"}
 	n := RSSFeed{URL: feedURL}
 	err := publishNews(t, n)
 	if err != nil {
