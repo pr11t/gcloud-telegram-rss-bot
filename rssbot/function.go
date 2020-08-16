@@ -72,7 +72,7 @@ func (r *RSSFeed) reverse() {
 }
 
 type telegramAPI struct {
-	botToken string
+	apiToken string
 	chatID   string
 }
 
@@ -82,7 +82,7 @@ type responseMessage = struct {
 }
 
 func (t *telegramAPI) call(command string, params interface{}, response interface{}) (interface{}, error) {
-	apiURL := fmt.Sprintf("https://api.telegram.org/bot%v/%v", t.botToken, command)
+	apiURL := fmt.Sprintf("https://api.telegram.org/bot%v/%v", t.apiToken, command)
 	jsonValue, err := json.Marshal(params)
 	if err != nil {
 		log.Panicf("Failed to marshal parameters: %v", err.Error())
@@ -203,8 +203,8 @@ type PubSubMessage struct {
 }
 
 func Run(ctx context.Context, m PubSubMessage) error {
-	botToken, chatID, feedURL := loadConfig()
-	t := telegramAPI{botToken: botToken, chatID: chatID}
+	apiToken, chatID, feedURL := loadConfig()
+	t := telegramAPI{apiToken: apiToken, chatID: chatID}
 	n := RSSFeed{URL: feedURL}
 	return postNews(t, n)
 }
