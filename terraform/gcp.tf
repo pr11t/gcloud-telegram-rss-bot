@@ -72,3 +72,19 @@ resource "google_cloud_scheduler_job" "job" {
   }
 }
 
+resource "google_service_account" "deployer_account" {
+  account_id = "${var.prefix}-function-deployer"
+  provisioner "local-exec" {
+    # TODO: Generate this with google_service_account_key and output in required format
+    command = "gcloud iam service-accounts keys create ${google_service_account.deployer_account.email}.json --iam-account ${google_service_account.deployer_account.email}"
+  }
+}
+
+resource "google_cloudfunctions_function_iam_member" "deployer" {
+  project        = google_cloudfunctions_function.function.project
+  region         = google_cloudfunctions_function.function.region
+  cloud_function = google_cloudfunctions_function.function.name
+
+  role   = "roles/cloudfunctions.admin"
+  member = "serviceAccount:${google_service_account.deployer_account.email}"
+}
