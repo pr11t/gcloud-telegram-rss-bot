@@ -21,19 +21,6 @@ resource "google_sourcerepo_repository" "repo" {
   }
 }
 
-resource "google_pubsub_topic" "topic" {
-  name = "${var.prefix}-trigger-topic"
-}
-
-resource "google_cloud_scheduler_job" "job" {
-  name      = "${var.prefix}-scheduler"
-  schedule  = var.scheduler_cron
-  time_zone = "UTC"
-  pubsub_target {
-    topic_name = google_pubsub_topic.topic.id
-    data       = base64encode("GO")
-  }
-}
 
 resource "google_service_account" "function_account" {
   account_id = "${var.prefix}-function-runner"
@@ -53,13 +40,7 @@ resource "google_cloudfunctions_function" "function" {
     url = "https://source.developers.google.com/projects/${var.project}/repos/${google_sourcerepo_repository.repo.name}/moveable-aliases/master/paths/rssbot/"
   }
 
-  event_trigger {
-    event_type = "google.pubsub.topic.publish"
-    resource   = google_pubsub_topic.topic.name
-    failure_policy {
-      retry = false
-    }
-  }
+  trigger_http = true
   environment_variables = {
     TELEGRAM_BOT_TOKEN = var.telegram_bot_token
     TELEGRAM_CHAT_ID   = var.telegram_chat_id
@@ -76,3 +57,18 @@ resource "google_cloudfunctions_function_iam_member" "invoker" {
   role   = "roles/cloudfunctions.invoker"
   member = "serviceAccount:${google_service_account.function_account.email}"
 }
+
+resource "google_cloud_scheduler_job" "job" {
+  name      = "${var.prefix}-scheduler"
+  schedule  = var.scheduler_cron
+  time_zone = "UTC"
+  http_target {
+    http_method = "GET"
+    uri         = google_cloudfunctions_function.function.https_trigger_url
+
+    oidc_token {
+      service_account_email = google_service_account.function_account.email
+    }
+  }
+}
+

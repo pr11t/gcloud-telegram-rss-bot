@@ -2,7 +2,6 @@ package rssbot
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -210,7 +209,7 @@ type PubSubMessage struct {
 	Data []byte `json:"data"`
 }
 
-func Run(ctx context.Context, m PubSubMessage) error {
+func Run(http.ResponseWriter, *http.Request) {
 	apiToken, chatID, feedURL := LoadConfig()
 	t := TelegramAPI{APIToken: apiToken, ChatID: chatID, APIURL: "https://api.telegram.org"}
 	n := RSSFeed{URL: feedURL}
@@ -218,5 +217,4 @@ func Run(ctx context.Context, m PubSubMessage) error {
 	if err != nil {
 		log.Print(err)
 	}
-	return err
 }
