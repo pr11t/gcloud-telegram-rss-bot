@@ -4,6 +4,7 @@ variable "prefix" {}
 variable "scheduler_cron" {}
 variable "telegram_bot_token" {}
 variable "telegram_chat_id" {}
+variable "rss_feed_url" {}
 
 provider "google" {
   project = var.project
@@ -49,7 +50,7 @@ resource "google_cloudfunctions_function" "function" {
   ingress_settings      = "ALLOW_INTERNAL_ONLY"
   service_account_email = google_service_account.function_account.email
   source_repository {
-    url = "https://source.developers.google.com/projects/${var.project}/repos/${google_sourcerepo_repository.repo.name}/moveable-aliases/master"
+    url = "https://source.developers.google.com/projects/${var.project}/repos/${google_sourcerepo_repository.repo.name}/moveable-aliases/master/paths/rssbot/"
   }
 
   event_trigger {
@@ -62,6 +63,7 @@ resource "google_cloudfunctions_function" "function" {
   environment_variables = {
     TELEGRAM_BOT_TOKEN = var.telegram_bot_token
     TELEGRAM_CHAT_ID   = var.telegram_chat_id
+    RSS_FEED_URL       = var.rss_feed_url
   }
 }
 
