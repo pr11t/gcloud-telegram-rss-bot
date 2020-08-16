@@ -34,7 +34,7 @@ resource "google_cloudfunctions_function" "function" {
   available_memory_mb   = 128
   timeout               = 60
   max_instances         = 1
-  ingress_settings      = "ALLOW_INTERNAL_ONLY"
+  ingress_settings      = "ALLOW_ALL"
   service_account_email = google_service_account.function_account.email
   source_repository {
     url = "https://source.developers.google.com/projects/${var.project}/repos/${google_sourcerepo_repository.repo.name}/moveable-aliases/master/paths/rssbot/"
