@@ -21,11 +21,9 @@ resource "google_sourcerepo_repository" "repo" {
   }
 }
 
-
 resource "google_service_account" "function_account" {
   account_id = "${var.prefix}-function-runner"
 }
-
 
 resource "google_cloudfunctions_function" "function" {
   name                  = "${var.prefix}-function"
@@ -85,6 +83,26 @@ resource "google_cloudfunctions_function_iam_member" "deployer" {
   region         = google_cloudfunctions_function.function.region
   cloud_function = google_cloudfunctions_function.function.name
 
-  role   = "roles/cloudfunctions.admin"
+  role   = "roles/cloudfunctions.developer"
   member = "serviceAccount:${google_service_account.deployer_account.email}"
+}
+
+
+resource "google_service_account_iam_member" "deployer-account-iam" {
+  service_account_id = google_service_account.function_account.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.deployer_account.email}"
+}
+
+resource "google_project_iam_custom_role" "cloud_function_deployer" {
+  role_id     = "cloudfunctionssourceCodeSet"
+  title       = "Cloud function deployer"
+  description = "Allow setting source code of cloud function"
+  permissions = ["cloudfunctions.functions.sourceCodeSet"]
+}
+
+resource "google_project_iam_member" "project" {
+  project = var.project
+  role    = google_project_iam_custom_role.cloud_function_deployer.name
+  member  = "serviceAccount:${google_service_account.deployer_account.email}"
 }
