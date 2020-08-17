@@ -33,7 +33,7 @@ type RSSFeed struct {
 func (r *RSSFeed) FetchLinks() error {
 	resp, err := http.Get(r.URL)
 	if err != nil {
-		log.Print("Failed to fetch rss feed")
+		log.Print("Failed to fetch RSS feed")
 		return err
 	}
 	content, err := ioutil.ReadAll(resp.Body)
