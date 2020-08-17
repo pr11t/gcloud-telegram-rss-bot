@@ -19,7 +19,7 @@ jobs:
           service_account_key: ${{ secrets.GCP_SA_KEY }}
           export_default_credentials: true
       - run: >-
-          gcloud functions deploy tgnewsbot-function 
+          gcloud functions deploy ${{ secrets.GCP_PREFIX }}-function
           --region="${{ secrets.GCP_REGION }}" 
           --update-env-vars TELEGRAM_BOT_TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
           --update-env-vars TELEGRAM_CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
