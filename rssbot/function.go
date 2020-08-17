@@ -205,10 +205,6 @@ func PublishNews(t TelegramAPI, r RSSFeed) error {
 	return nil
 }
 
-type PubSubMessage struct {
-	Data []byte `json:"data"`
-}
-
 func Run(http.ResponseWriter, *http.Request) {
 	apiToken, chatID, feedURL := LoadConfig()
 	t := TelegramAPI{APIToken: apiToken, ChatID: chatID, APIURL: "https://api.telegram.org"}
