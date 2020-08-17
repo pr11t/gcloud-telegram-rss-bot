@@ -10,15 +10,22 @@ provider "google" {
   project = var.project
   region  = var.region
 }
-resource "google_sourcerepo_repository" "repo" {
-  name = "${var.prefix}-repository"
-  provisioner "local-exec" {
-    command = "git remote add google ${google_sourcerepo_repository.repo.url} && git push google --all"
-  }
-  provisioner "local-exec" {
-    when    = destroy
-    command = "git remote remove google"
-  }
+
+data "archive_file" "init" {
+  type        = "zip"
+  source_file = "../rssbot/function.go"
+  output_path = "function.zip"
+}
+
+resource "google_storage_bucket" "bucket" {
+  name     = "${var.prefix}-function-deploy-bucket"
+  location = var.region
+}
+
+resource "google_storage_bucket_object" "archive" {
+  name   = "function.zip"
+  bucket = google_storage_bucket.bucket.name
+  source = "function.zip"
 }
 
 resource "google_service_account" "function_account" {
@@ -34,11 +41,9 @@ resource "google_cloudfunctions_function" "function" {
   max_instances         = 1
   ingress_settings      = "ALLOW_ALL"
   service_account_email = google_service_account.function_account.email
-  source_repository {
-    url = "https://source.developers.google.com/projects/${var.project}/repos/${google_sourcerepo_repository.repo.name}/moveable-aliases/master/paths/rssbot/"
-  }
-
-  trigger_http = true
+  source_archive_bucket = google_storage_bucket.bucket.name
+  source_archive_object = google_storage_bucket_object.archive.name
+  trigger_http          = true
   environment_variables = {
     TELEGRAM_BOT_TOKEN = var.telegram_bot_token
     TELEGRAM_CHAT_ID   = var.telegram_chat_id
