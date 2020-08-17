@@ -139,7 +139,6 @@ func (t *TelegramAPI) GetChat() (chat interface{}, err error) {
 		ChatID: t.ChatID,
 	}
 	chat, err = t.call("getChat", params)
-	fmt.Println(chat)
 	if err != nil {
 		return
 	}
