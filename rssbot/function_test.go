@@ -56,34 +56,34 @@ func TestRSSFeedFetchLinks(t *testing.T) {
 		rw.Write([]byte(feedXML))
 	}))
 	defer server.Close()
-	n := RSSFeed{URL: server.URL}
-	n.FetchLinks()
-	if len(n.links) != 3 {
+	r := RSSFeed{URL: server.URL}
+	r.Fetch()
+	if len(r.RSS.Channel.Items) != 3 {
 		t.Errorf("Wrong number of links extracted")
 	}
-	if n.links[1] != "https://example.com/news/item2" {
-		t.Errorf("Unexpected link in position 2: %v", n.links[1])
+	if r.RSS.Channel.Items[1].Link != "https://example.com/news/item2" {
+		t.Errorf("Unexpected link in position 2: %v", r.RSS.Channel.Items[1].Link)
 	}
 }
 
 func TestRSSFeedReverse(t *testing.T) {
-	links := []string{"example.com/1", "example.com/2", "example.com/3"}
-	want := []string{"example.com/3", "example.com/2", "example.com/1"}
-	n := RSSFeed{links: links}
-	n.reverse()
-	if !reflect.DeepEqual(want, n.links) {
-		t.Errorf("Reversing the slice produced unexpected results, want:%v got:%v", want, n.links)
+	orig := RSS{Channel: Channel{Items: []Item{{Link: "example.com/1"}, {Link: "example.com/2"}, {Link: "example.com/3"}}}}
+	want := RSS{Channel: Channel{Items: []Item{{Link: "example.com/3"}, {Link: "example.com/2"}, {Link: "example.com/1"}}}}
+	r := RSSFeed{RSS: orig}
+	r.reverse()
+	if !reflect.DeepEqual(r.RSS, want) {
+		t.Errorf("Reversing the slice produced unexpected results, want:%v got:%v", want, r.RSS)
 	}
 }
 
 func TestRSSFeedRemoveOlderThan(t *testing.T) {
-	links := []string{"example.com/1", "example.com/2", "example.com/3"}
-	want := []string{"example.com/1", "example.com/2"}
+	orig := RSS{Channel: Channel{Items: []Item{{Link: "example.com/1"}, {Link: "example.com/2"}, {Link: "example.com/3"}}}}
+	want := RSS{Channel: Channel{Items: []Item{{Link: "example.com/1"}, {Link: "example.com/2"}}}}
 	olderThan := "example.com/3"
-	n := RSSFeed{links: links}
-	n.removeOlderThan(olderThan)
-	if !reflect.DeepEqual(want, n.links) {
-		t.Errorf("Removing older than %v failed, expected: %v, got: %v", olderThan, want, n.links)
+	r := RSSFeed{RSS: orig}
+	r.removeOlderThan(olderThan)
+	if !reflect.DeepEqual(r.RSS, want) {
+		t.Errorf("Removing older than %v failed, expected: %v, got: %v", olderThan, want, r.RSS)
 	}
 }
 

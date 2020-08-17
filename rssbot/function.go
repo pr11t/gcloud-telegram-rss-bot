@@ -3,13 +3,14 @@ package rssbot
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"regexp"
+	"time"
 )
 
 func LoadConfig() (telegramToken, telegramChatID, rssFeedURL string) {
@@ -26,12 +27,40 @@ func LoadConfig() (telegramToken, telegramChatID, rssFeedURL string) {
 }
 
 type RSSFeed struct {
-	links []string
-	URL   string
+	URL  string
+	RSS  RSS
+	Test []string
 }
 
-func (r *RSSFeed) FetchLinks() error {
-	resp, err := http.Get(r.URL)
+type RSS struct {
+	XMLName xml.Name `xml:"rss"`
+	Channel Channel  `xml:"channel"`
+}
+type Channel struct {
+	XMLName       xml.Name `xml:"channel"`
+	Title         string   `xml:"title"`
+	Description   string   `xml:"description"`
+	Link          string   `xml:"link"`
+	Language      string   `xml:"language"`
+	Copyright     string   `xml:"copyright"`
+	WebMaster     string   `xml:"webMaster"`
+	PubDate       string   `xml:"pubDate"`
+	LastBuildDate string   `xml:"lastBuildDate"`
+	Generator     string   `xml:"generator"`
+	Items         []Item   `xml:"item"`
+}
+type Item struct {
+	XMLName     xml.Name `xml:"item"`
+	Title       string   `xml:"title"`
+	Description string   `xml:"description"`
+	Link        string   `xml:"link"`
+}
+
+func (r *RSSFeed) Fetch() error {
+	client := http.Client{
+		Timeout: 5 * time.Second,
+	}
+	resp, err := client.Get(r.URL)
 	if err != nil {
 		log.Print("Failed to fetch RSS feed")
 		return err
@@ -39,34 +68,30 @@ func (r *RSSFeed) FetchLinks() error {
 	content, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 
-	r.links = make([]string, 0)
-	re := regexp.MustCompile("<link>(https://[a-z0-9./-]+)</link>")
-	matches := re.FindAllStringSubmatch(string(content), -1)
-	for _, link := range matches {
-		if len(link) == 2 {
-			r.links = append(r.links, link[1])
-		}
+	err = xml.Unmarshal(content, &r.RSS)
+	if err != nil {
+		log.Print("Failed to unmarshal XML")
+		return err
 	}
 	return nil
 }
 
 func (r *RSSFeed) removeOlderThan(latestNewsItem string) {
-	newURLs := make([]string, 0)
-	for _, url := range r.links {
-		if url != latestNewsItem {
-			newURLs = append(newURLs, url)
-		} else {
-			break
+	for i := range r.RSS.Channel.Items {
+		if r.RSS.Channel.Items[i].Link == latestNewsItem {
+			newItems := make([]Item, i)
+			copy(newItems, r.RSS.Channel.Items[0:i])
+			r.RSS.Channel.Items = newItems
+			return
 		}
 	}
-	r.links = newURLs
 }
 
 func (r *RSSFeed) reverse() {
 	// Reverse the slice because we want to post news starting from the oldest
-	for i := len(r.links)/2 - 1; i >= 0; i-- {
-		opp := len(r.links) - 1 - i
-		r.links[i], r.links[opp] = r.links[opp], r.links[i]
+	for i := len(r.RSS.Channel.Items)/2 - 1; i >= 0; i-- {
+		opp := len(r.RSS.Channel.Items) - 1 - i
+		r.RSS.Channel.Items[i], r.RSS.Channel.Items[opp] = r.RSS.Channel.Items[opp], r.RSS.Channel.Items[i]
 	}
 }
 
@@ -77,12 +102,15 @@ type TelegramAPI struct {
 }
 
 func (t *TelegramAPI) call(command string, params interface{}) (response interface{}, err error) {
+	client := http.Client{
+		Timeout: 5 * time.Second,
+	}
 	apiURL := fmt.Sprintf("%v/bot%v/%v", t.APIURL, t.APIToken, command)
 	jsonValue, err := json.Marshal(params)
 	if err != nil {
 		log.Panicf("Failed to marshal parameters: %v", err.Error())
 	}
-	resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonValue))
+	resp, err := client.Post(apiURL, "application/json", bytes.NewBuffer(jsonValue))
 	if err != nil {
 		log.Print("API call failed ", err.Error())
 		return nil, err
@@ -164,7 +192,7 @@ func PublishNews(t TelegramAPI, r RSSFeed) error {
 	messageLimit := 10
 
 	// Fetch news urls we want to post
-	err := r.FetchLinks()
+	err := r.Fetch()
 	if err != nil {
 		return err
 	}
@@ -180,18 +208,18 @@ func PublishNews(t TelegramAPI, r RSSFeed) error {
 	}
 	r.removeOlderThan(latestPost)
 	r.reverse()
-	if len(r.links) < 1 {
+	if len(r.RSS.Channel.Items) < 1 {
 		log.Print("No new URLs to post")
 		return nil
 	}
-	log.Printf("%v new URLs", len(r.links))
-	for _, url := range r.links {
+	log.Printf("%v new URLs", len(r.RSS.Channel.Items))
+	for _, item := range r.RSS.Channel.Items {
 		// Set the description first, in case something breaks down the line we may miss an article, but don't spam the channel.
-		if t.SetChatDescription(url) != nil {
+		if t.SetChatDescription(item.Link) != nil {
 			log.Printf("Failed to set chat description: %v", err.Error())
 			return err
 		}
-		if t.SendMessage(url) != nil {
+		if t.SendMessage(item.Link+" "+item.Description) != nil {
 			log.Printf("Failed to send message: %v", err.Error())
 			return err
 		}
