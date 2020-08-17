@@ -51,7 +51,7 @@ var feedXML = `
 		</channel>
 		</rss>`
 
-func TestRSSFeedFetchLinks(t *testing.T) {
+func TestRSSFeedFetch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Write([]byte(feedXML))
 	}))
@@ -63,6 +63,24 @@ func TestRSSFeedFetchLinks(t *testing.T) {
 	}
 	if r.RSS.Channel.Items[1].Link != "https://example.com/news/item2" {
 		t.Errorf("Unexpected link in position 2: %v", r.RSS.Channel.Items[1].Link)
+	}
+}
+
+func TestItemTelegramString(t *testing.T) {
+	tests := []struct {
+		item Item
+		want string
+	}{
+		{item: Item{Description: "A desc", Link: "http://example.com", Category: "Cat"}, want: "#Cat\nA desc\nhttp://example.com"},
+		{item: Item{Description: "Another desc", Link: "https://example.com", Category: "FFF"}, want: "#FFF\nAnother desc\nhttps://example.com"},
+	}
+
+	for _, test := range tests {
+		i := test.item
+		result := i.TelegramString()
+		if result != test.want {
+			t.Errorf("Want: %v Got: %v", test.want, result)
+		}
 	}
 }
 

@@ -49,11 +49,27 @@ type Channel struct {
 	Generator     string   `xml:"generator"`
 	Items         []Item   `xml:"item"`
 }
+
 type Item struct {
 	XMLName     xml.Name `xml:"item"`
 	Title       string   `xml:"title"`
 	Description string   `xml:"description"`
 	Link        string   `xml:"link"`
+	Category    string   `xml:"category"`
+}
+
+// TelegramString returns a formated news item
+func (i *Item) TelegramString() (message string) {
+	if i.Category != "" {
+		message += fmt.Sprintf("#%v\n", i.Category)
+	}
+	if i.Description != "" {
+		message += fmt.Sprintf("%v\n", i.Description)
+	}
+	if i.Link != "" {
+		message += fmt.Sprintf("%v", i.Link)
+	}
+	return
 }
 
 func (r *RSSFeed) Fetch() error {
@@ -219,7 +235,7 @@ func PublishNews(t TelegramAPI, r RSSFeed) error {
 			log.Printf("Failed to set chat description: %v", err.Error())
 			return err
 		}
-		if t.SendMessage(item.Link+" "+item.Description) != nil {
+		if t.SendMessage(item.TelegramString()) != nil {
 			log.Printf("Failed to send message: %v", err.Error())
 			return err
 		}
