@@ -55,7 +55,7 @@ Auth file with private key is saved in `$prefix-function-deployer@$project.iam.g
 
 ## Continuos deployment with Github actions
 
-After initial setup with Terraform you can fork the repo and set following secrets
+After doing initial setup with Terraform you can fork this repo and set following secrets:
 
 ```
 GCP_PROJECT_ID
@@ -66,7 +66,7 @@ TELEGRAM_CHAT_ID
 RSS_FEED_URL
 ```
 
-Any change to files in `./rssbot/*` will trigger a new build.
+Any change to files in `./rssbot/*` will trigger a new function deployment.
 
 # Cleanup
 
