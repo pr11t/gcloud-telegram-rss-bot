@@ -27,9 +27,8 @@ func LoadConfig() (telegramToken, telegramChatID, rssFeedURL string) {
 }
 
 type RSSFeed struct {
-	URL  string
-	RSS  RSS
-	Test []string
+	URL string
+	RSS RSS
 }
 
 type RSS struct {
